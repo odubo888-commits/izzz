@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <!-- 完美适配 14 Pro 灵动岛安全区域 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>酒馆卡牌·终极视界版</title>
+    <style>
+        :root {
+            --bg-color: #f2f2f7;
+            --card-bg: rgba(255, 255, 255, 0.85);
+            --card-inner: #fafafa;
+            --text-primary: #1c1c1e;
+            --text-secondary: #636366;
+            --accent-blue: #007aff;
+            --accent-purple: #af52de;
+            --accent-orange: #ff9500;
+            --accent-green: #34c759;
+            --border-radius: 20px;
+            --inner-radius: 12px;
+            --divider: rgba(0, 0, 0, 0.05);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-color: #000000;
+                --card-bg: rgba(28, 28, 30, 0.85);
+                --card-inner: #2c2c2e;
+                --text-primary: #ffffff;
+                --text-secondary: #8e8e93;
+                --accent-blue: #0a84ff;
+                --accent-purple: #bf5af2;
+                --accent-orange: #ff9f0a;
+                --accent-green: #30d158;
+                --divider: rgba(255, 255, 255, 0.08);
+            }
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+            margin: 0;
+            padding: calc(env(safe-area-inset-top) + 10px) 16px calc(env(safe-area-inset-bottom) + 30px) 16px;
+            box-sizing: border-box;
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .ios-header { padding: 20px 0 10px 8px; }
+        .ios-header h1 { font-size: 26px; margin: 0; font-weight: 800; letter-spacing: -0.5px; }
+        .ios-header p { font-size: 13px; color: var(--text-secondary); margin: 5px 0 0 0; font-weight: 500; }
+
+        .upload-zone {
+            background: var(--card-bg);
+            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            border-radius: var(--border-radius);
+            padding: 24px; text-align: center;
+            border: 2px dashed rgba(0, 122, 255, 0.2);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.02);
+            margin-bottom: 20px; position: relative;
+        }
+        .upload-pointer { font-size: 36px; margin-bottom: 8px; display: block; }
+        .upload-text { font-size: 15px; font-weight: 600; color: var(--accent-blue); }
+        input[type="file"] { position: absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer; }
+        #previewContainer { margin-top: 12px; display: none; }
+        #pImg { max-width: 80px; max-height: 100px; border-radius: var(--inner-radius); box-shadow: 0 6px 16px rgba(0,0,0,0.15); object-fit: cover; }
+
+        /* 大分类折叠卡片 */
+        .accordion-item {
+            background: var(--card-bg);
+            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            border-radius: var(--border-radius);
+            margin-bottom: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.02);
+            overflow: hidden;
+            border: 1px solid var(--divider);
+        }
+        .accordion-header {
+            padding: 16px 20px; font-size: 15px; font-weight: 700;
+            display: flex; justify-content: space-between; align-items: center;
+            cursor: pointer; -webkit-tap-highlight-color: transparent;
+        }
+        .accordion-header:active { background: rgba(0,0,0,0.02); }
+        .accordion-icon { font-size: 11px; color: var(--text-secondary); transition: transform 0.23s ease; }
+        .accordion-item.active > .accordion-header .accordion-icon { transform: rotate(90deg); }
+        
+        /* 修复核心：大分类的收缩只控制可见性，不锁死滚动 */
+        .accordion-content { max-height: 0; overflow: hidden; transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .accordion-item.active > .accordion-content { max-height: none; } /* 彻底展开，放权给内部容器 */
+        .accordion-body { padding: 2px 16px 16px 16px; }
+
+        /* 修复 iOS 翻不动核心：智控限高独立视窗 */
+        .bounded-scroll-container {
+            height: 48vh; /* 高度精确锁死在 iPhone 屏幕的 48%，避免失控 */
+            overflow-y: scroll !important;  /* 强制生成独立滚动层 */
+            -webkit-overflow-scrolling: touch !important; /* 激活 iOS 独占物理惯性丝滑滚动 */
+            touch-action: pan-y !important; /* 显式声明：该区域专门接收上下滑动手势 */
+            padding-right: 6px;
+            box-sizing: border-box;
+        }
+
+        /* 世界书内置子折叠条目 */
+        .wb-nested-item {
+            background: var(--card-inner);
+            border-radius: var(--inner-radius);
+            margin-bottom: 8px;
+            border: 1px solid var(--divider);
+            overflow: hidden;
+        }
+        .wb-nested-header {
+            padding: 12px; font-size: 13px; font-weight: 700;
+            color: var(--accent-purple); display: flex;
+            justify-content: space-between; align-items: center; cursor: pointer;
+        }
+        .wb-nested-content { max-height: 0; overflow: hidden; transition: max-height 0.2s ease; }
+        .wb-nested-item.active .wb-nested-content { max-height: none; border-top: 1px solid var(--divider); }
+        .wb-nested-body { padding: 12px; }
+        .wb-subkeys { font-size: 11px; color: var(--text-secondary); margin-bottom: 6px; font-family: monospace; }
+
+        /* 开场白选择器 */
+        .greetings-picker { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 10px; }
+        .greetings-picker::-webkit-scrollbar { display: none; }
+        .tab-btn { background: var(--card-inner); color: var(--text-secondary); padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; white-space: nowrap; border: 1px solid var(--divider); }
+        .tab-btn.active { background: var(--accent-blue); color: white; border-color: var(--accent-blue); }
+        .greeting-display-box { background: var(--card-inner); padding: 12px; border-radius: var(--inner-radius); }
+
+        /* 基础档案 */
+        .meta-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+        .meta-item { background: var(--card-inner); padding: 10px; border-radius: var(--inner-radius); border: 1px solid var(--divider); }
+        .meta-label { font-size: 11px; color: var(--text-secondary); margin-bottom: 2px; font-weight: 600; }
+        .meta-val { font-size: 14px; font-weight: 700; }
+
+        /* 纯文本 */
+        .readable-text { font-size: 14.5px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+        .char-tag { background: rgba(0,122,255,0.08); color: var(--accent-blue); padding: 2px 4px; border-radius: 4px; font-weight: 600; }
+
+        /* 嵌套规则Bug渲染框 */
+        .nested-regex-box {
+            margin-top: 8px; background: rgba(255, 149, 0, 0.05);
+            border: 1px dashed var(--accent-orange); padding: 8px; border-radius: 6px; font-size: 11px; font-family: monospace;
+        }
+        .regex-entry { background: var(--card-inner); padding: 10px; border-radius: var(--inner-radius); margin-bottom: 8px; font-family: ui-monospace, monospace; font-size: 12px; border: 1px solid var(--divider); }
+
+        .status { text-align: center; color: var(--accent-orange); font-size: 13px; font-weight: 600; margin-top: 8px; }
+    </style>
+</head>
+<body>
+
+    <div class="ios-header">
+        <h1>角色卡智能面板</h1>
+        <p>WebKit 物理级滚动注入 · 无边界解密系统</p>
+    </div>
+
+    <div class="upload-zone">
+        <span class="upload-pointer">👁️‍🗨️</span>
+        <div class="upload-text">导入酒馆 PNG 卡片</div>
+        <input type="file" id="imgInp" accept="image/png">
+        <div id="previewContainer"><img id="pImg" src=""></div>
+        <div id="status" class="status"></div>
+    </div>
+
+    <div id="readerZone"></div>
+
+    <script>
+        const imgInp = document.getElementById('imgInp');
+        const pImg = document.getElementById('pImg');
+        const previewContainer = document.getElementById('previewContainer');
+        const status = document.getElementById('status');
+        const readerZone = document.getElementById('readerZone');
+
+        imgInp.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            status.textContent = "解析重组中...";
+            readerZone.innerHTML = "";
+            previewContainer.style.display = "none";
+            pImg.src = URL.createObjectURL(file);
+            previewContainer.style.display = "block";
+
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                try { deepScanPNG(new Uint8Array(evt.target.result)); } 
+                catch(err) { status.textContent = "图片解析崩溃，请确保是酒馆原画。"; }
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        function deepScanPNG(u8Array) {
+            const view = new DataView(u8Array.buffer);
+            const decoder = new TextDecoder('utf-8');
+            let offset = 8; let rawText = "";
+
+            while (offset < u8Array.length) {
+                if (offset + 8 > u8Array.length) break;
+                const length = view.getUint32(offset);
+                const type = decoder.decode(u8Array.slice(offset + 4, offset + 8));
+                if (type === 'tEXt' || type === 'iTXt') {
+                    const chunkData = u8Array.slice(offset + 8, offset + 8 + length);
+                    let nullIdx = chunkData.indexOf(0);
+                    if (nullIdx !== -1) {
+                        if (decoder.decode(chunkData.slice(0, nullIdx)) === 'chara') {
+                            let bytes = type === 'tEXt' ? chunkData.slice(nullIdx + 1) : chunkData.slice(nullIdx + 5);
+                            rawText = decoder.decode(bytes); break;
+                        }
+                    }
+                }
+                offset += 12 + length;
+            }
+
+            if (!rawText) { status.textContent = "未检测到角色元数据。"; return; }
+            status.textContent = "";
+
+            let json = null;
+            try { json = JSON.parse(decodeURIComponent(escape(atob(rawText)))); } 
+            catch(e) { try { json = JSON.parse(rawText); } catch(e2){} }
+
+            if (json) renderUI(json);
+            else status.textContent = "未解析到合法的JSON配置。";
+        }
+
+        function renderUI(json) {
+            const d = json.data || json;
+            const charName = d.name || d.character_name || "未命名";
+            const userName = d.user_name || "你";
+
+            function cleanText(text) {
+                if (!text) return "（未填写）";
+                return String(text)
+                    .replace(/\{\{char\}\}/g, `<span class="char-tag">${charName}</span>`)
+                    .replace(/\{\{user\}\}/g, `<span class="char-tag">${userName}</span>`);
+            }
+
+            function createMainCard(title, icon, contentHtml, isDefaultActive = false) {
+                return `
+                    <div class="accordion-item ${isDefaultActive ? 'active' : ''}">
+                        <div class="accordion-header" onclick="toggleMain(this)">
+                            <span>${icon} ${title}</span>
+                            <span class="accordion-icon" style="${isDefaultActive ? 'transform:rotate(90deg);' : ''}">▶</span>
+                        </div>
+                        <div class="accordion-content" style="${isDefaultActive ? 'max-height:none;' : ''}">
+                            <div class="accordion-body">${contentHtml}</div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            let html = "";
+
+            // 1. 档案
+            const metaHtml = `
+                <div class="meta-grid">
+                    <div class="meta-item"><div class="meta-label">角色名字</div><div class="meta-val">${charName}</div></div>
+                    <div class="meta-item"><div class="meta-label">创作者</div><div class="meta-val">${d.creator || "未知"}</div></div>
+                    <div class="meta-item"><div class="meta-label">卡片版本</div><div class="meta-val">${d.version || "1.0"}</div></div>
+                    <div class="meta-item"><div class="meta-label">描述长度</div><div class="meta-val">${d.description ? d.description.length : 0} 字</div></div>
+                </div>
+            `;
+            html += createMainCard("角色基本档案", "👤", metaHtml, true);
+
+            // 2. 开场白
+            let mainGreeting = d.first_mes || d.greeting || json.first_mes || "";
+            let altGreetings = d.alternate_greetings || [];
+            let greetHtml = "";
+            if (altGreetings.length > 0) {
+                greetHtml += `<div class="greetings-picker">`;
+                greetHtml += `<div class="tab-btn active" onclick="switchG(this, 0)">默认开场白</div>`;
+                altGreetings.forEach((_, i) => { greetHtml += `<div class="tab-btn" onclick="switchG(this, ${i + 1})">分支 ${i + 1}</div>`; });
+                greetHtml += `</div><div class="greeting-display-box readable-text" id="gBox">${cleanText(mainGreeting)}</div>`;
+                window.gList = [mainGreeting, ...altGreetings].map(g => cleanText(g));
+            } else {
+                greetHtml += `<div class="readable-text">${cleanText(mainGreeting)}</div>`;
+            }
+            html += createMainCard("见面开场白 (First Message)", "💬", greetHtml);
+
+            // 3. 人设与性格
+            html += createMainCard("核心角色设定 (Description)", "📜", `<div class="readable-text">${cleanText(d.description)}</div>`);
+            if (d.personality) html += createMainCard("性格特征与细节 (Personality)", "🧠", `<div class="readable-text">${cleanText(d.personality)}</div>`);
+            if (d.scenario) html += createMainCard("当前触发场景 (Scenario)", "🗺️", `<div class="readable-text">${cleanText(d.scenario)}</div>`);
+
+            // 4. 世界书 (高级修复：触控协议重写)
+            const lorebook = d.character_book || json.character_book;
+            if (lorebook && lorebook.entries && lorebook.entries.length > 0) {
+                let wbHtml = `<div class="bounded-scroll-container">`; 
+                lorebook.entries.forEach((entry, idx) => {
+                    let entryName = entry.comment || entry.name || "";
+                    const keys = Array.isArray(entry.keys) ? entry.keys.join(', ') : (entry.key || []).toString();
+                    if (!entryName) {
+                        entryName = `条目 [${idx+1}] - ${keys.slice(0, 12)}${keys.length > 12 ? '...' : ''}`;
+                    }
+
+                    let content = entry.content || entry.entry || "";
+                    
+                    let regexBugHtml = "";
+                    if (entry.extensions && entry.extensions.regex_scripts) {
+                        entry.extensions.regex_scripts.forEach((rReg) => {
+                            regexBugHtml += `
+                                <div class="nested-regex-box">
+                                    ⚠️ 发现嵌套正则规则: <b>${rReg.scriptName || '未命名'}</b><br>
+                                    查找: <span style="color:#ff453a">${rReg.find||''}</span> | 
+                                    替换: <span style="color:var(--accent-green)">${rReg.replace||''}</span>
+                                </div>`;
+                        });
+                    }
+
+                    wbHtml += `
+                        <div class="wb-nested-item">
+                            <div class="wb-nested-header" onclick="toggleNested(this)">
+                                <span>📘 ${entryName}</span>
+                                <span class="accordion-icon">▶</span>
+                            </div>
+                            <div class="wb-nested-content">
+                                <div class="wb-nested-body">
+                                    <div class="wb-subkeys">🔑 关联触发词: ${keys || '无'}</div>
+                                    <div class="readable-text" style="font-size:13.5px;">${cleanText(content)}</div>
+                                    ${regexBugHtml}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                wbHtml += `</div>`;
+                html += createMainCard(`绑定的世界书设定 (${lorebook.entries.length} 条)`, "📚", wbHtml);
+            }
+
+            // 5. 独立正则表达式
+            const extensions = d.extensions || {};
+            const regexes = extensions.regex_scripts || [];
+            if (regexes && regexes.length > 0) {
+                let regHtml = `<div class="bounded-scroll-container">`;
+                regexes.forEach((reg, idx) => {
+                    regHtml += `
+                        <div class="regex-entry">
+                            <div class="regex-title">规则 ${idx + 1}: ${reg.scriptName || '未命名'} (${reg.disabled ? '🔴禁用' : '🟢激活'})</div>
+                            <div>匹配 (Find): <span style="color:#ff453a;">${reg.find || ''}</span></div>
+                            <div>替换 (Replace): <span style="color:var(--accent-green);">${reg.replace || ''}</span></div>
+                        </div>
+                    `;
+                });
+                regHtml += `</div>`;
+                html += createMainCard(`全局正则表达式 (${regexes.length} 条)`, "⚙️", regHtml);
+            }
+
+            if (d.mes_example) html += createMainCard("对话语气示例 (Examples)", "💡", `<div class="readable-text" style="font-family:monospace; font-size:13.5px;">${cleanText(d.mes_example)}</div>`);
+            if (extensions.system_prompt) html += createMainCard("系统提示词 (System Prompt)", "🔒", `<div class="readable-text" style="font-size:13px; color:var(--text-secondary); background:rgba(255,149,0,0.03); padding:10px; border-radius:8px;">${cleanText(extensions.system_prompt)}</div>`);
+
+            readerZone.innerHTML = html;
+        }
+
+        function toggleMain(el) {
+            const item = el.parentElement; const content = item.querySelector('.accordion-content'); const icon = item.querySelector('.accordion-icon');
+            if (item.classList.contains('active')) { content.style.maxHeight = '0px'; icon.style.transform = 'rotate(0deg)'; item.classList.remove('active'); } 
+            else { content.style.maxHeight = 'none'; icon.style.transform = 'rotate(90deg)'; item.classList.add('active'); }
+        }
+
+        function toggleNested(el) {
+            const item = el.parentElement; const content = item.querySelector('.wb-nested-content'); const icon = item.querySelector('.accordion-icon');
+            event.stopPropagation();
+            if (item.classList.contains('active')) { content.style.maxHeight = '0px'; icon.style.transform = 'rotate(0deg)'; item.classList.remove('active'); } 
+            else { content.style.maxHeight = 'none'; icon.style.transform = 'rotate(90deg)'; item.classList.add('active'); }
+        }
+
+        function switchG(btn, idx) {
+            btn.parentElement.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active');
+            document.getElementById('gBox').innerHTML = window.gList[idx];
+        }
+    </script>
+</body>
+</html>
